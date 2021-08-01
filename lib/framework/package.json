@@ -1,5 +1,5 @@
 {
-  "name": "vug_framework",
+  "name": "vuma_framework",
   "description": "",
   "main": "main.js",
   "author": "",
@@ -32,7 +32,7 @@
     "vue-loader": "^14.2.4",
     "vue-style-loader": "^2.0.0",
     "vue-template-compiler": "^2.5.2",
-    "vug-templates": "git+https://github.com/bluers/vug-templates.git",
+    "vuma-template": "git+https://github.com/angryreid/vuma-template.git",
     "webpack": "^4.15.1",
     "webpack-cli": "^3.3.2",
     "webpack-dev-server": "^3.4.1"

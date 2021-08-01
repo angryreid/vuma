@@ -1,0 +1,608 @@
+#!/usr/bin/env node
+
+const fs = require("fs");
+const path = require("path");
+const glob = require("glob");
+const inquirer = require("inquirer");
+const _ = require("lodash");
+const ora = require("ora");
+const spawn = require("child_process").spawn;
+const chalk = require("chalk");
+
+const logger = require("../lib/logger.js");
+const CONSTANTS = require("../lib/constants.js");
+const utils = require("../lib/utils");
+
+const CURRENT_PATH = process.cwd();
+
+const template_folder_path = path.join(
+  CURRENT_PATH,
+  "node_modules/vuma-template/templates"
+);
+const template_git_path = CONSTANTS.BASE_TEMPLATE_GIT_PATH;
+
+// console.log(template_folder_path)
+
+const funs = {
+  //安装依赖包
+  installOrUpdateDep: function (flag) {
+    let spinner = ora(
+      `正在${
+        flag == "update" ? "更新" : "安装"
+      }依赖包，可能需要较长时间，请耐心等待...`
+    );
+    let npm = spawn(process.platform === "win32" ? "npm.cmd" : "npm", [flag]);
+    spinner.start();
+    npm.stdout.on("data", (data) => {
+      logger.log(data.toString());
+    });
+
+    npm.stderr.on("close", (err) => {
+      spinner.stop();
+      if (err) {
+        logger.log(err);
+        logger.fatal("安装失败\n");
+      } else {
+        logger.success("安装依赖包完毕\n");
+        initAsk(MENU);
+      }
+    });
+  },
+  installDep: function () {
+    funs.installOrUpdateDep("install");
+  },
+  updateDep: function () {
+    funs.installOrUpdateDep("update");
+  },
+  //更新模板库
+  updateTemplateRepo: function () {
+    return new Promise((resolve, reject) => {
+      let exist = fs.existsSync(template_folder_path);
+      let spinner = ora("正在拉取模板库...");
+      let npm = spawn(process.platform === "win32" ? "npm.cmd" : "npm", [
+        "install",
+        template_git_path,
+      ]);
+      spinner.start();
+      npm.stdout.on("data", (data) => {
+        //logger.log(data.toString())
+      });
+
+      npm.stderr.on("close", (err) => {
+        spinner.stop();
+        if (err) {
+          logger.fatal(`拉取模板库${template_git_path}失败，请检查\n`);
+          reject();
+        } else {
+          logger.success("更新完毕\n");
+          resolve();
+        }
+      });
+    });
+  },
+  manuallyUpdateTemplateRepo: function () {
+    funs.updateTemplateRepo().then(() => {
+      let template_list = fs
+        .readdirSync(template_folder_path)
+        .filter((path) => {
+          return !/^package\.json$/.test(path);
+        });
+      logger.log("当前可用模板包括：\n");
+      template_list.map((template) => {
+        logger.success(`${template}`);
+      });
+      logger.log("");
+      initAsk(MENU);
+    });
+  },
+  // 新建路由
+  createRouter: function () {
+    let options = {};
+
+    const isExist = (input_path) => {
+      let file_path = path.resolve(CURRENT_PATH, `./src/pages${input_path}`);
+      let entryPath = utils.join(file_path, ".entry.js");
+      let vuePath = utils.join(file_path, ".vue");
+      let configPath = utils.join(file_path, ".json");
+      let logger_text = "";
+      let exist_flag = false;
+
+      if (fs.existsSync(entryPath)) {
+        logger_text += `${entryPath} 文件已存在\n`;
+        exist_flag = true;
+      }
+      if (fs.existsSync(vuePath)) {
+        logger_text += `${vuePath} 文件已存在\n`;
+        exist_flag = true;
+      }
+      if (fs.existsSync(configPath)) {
+        logger_text += `${configPath} 文件已存在\n`;
+        exist_flag = true;
+      }
+
+      if (exist_flag === true) {
+        logger.warn(logger_text + "创建失败！\n");
+        return true;
+      } else {
+        _.merge(options, {
+          entryPath,
+          vuePath,
+          configPath,
+        });
+        return false;
+      }
+    };
+
+    const getPath = () => {
+      return new Promise((resolve, reject) => {
+        let questions = [
+          {
+            type: "input",
+            name: "path",
+            message: "请输路由路径，如：/user/add  (无需 .html 结尾)\n",
+            validate: function (value) {
+              if (!/^\//gi.test(value)) {
+                return "请以 / 开头";
+              }
+              if (/\/$/gi.test(value)) {
+                return "不能以 / 结尾";
+              }
+              if (/\.html$/gi.test(value)) {
+                return "不能以 .html 结尾";
+              }
+              return true;
+            },
+          },
+        ];
+        inquirer.prompt(questions).then(function (answers) {
+          if (!isExist(answers.path)) {
+            resolve();
+          } else {
+            funs.createRouter();
+          }
+        });
+      });
+    };
+
+    const chooseTemplate = () => {
+      return new Promise((resolve, reject) => {
+        let askTemplateQuestion = () => {
+          let template_list = fs
+            .readdirSync(template_folder_path)
+            .filter((template_path) => {
+              return !/^package\.json$/.test(template_path);
+            });
+          let questions = {
+            type: "list",
+            name: "template",
+            message: "请选择可用模板\n",
+            choices: template_list,
+          };
+          inquirer.prompt(questions).then(function (answers) {
+            resolve(
+              _.merge(options, {
+                template: answers.template,
+              })
+            );
+          });
+        };
+
+        let exists = fs.existsSync(template_folder_path);
+        if (exists) {
+          askTemplateQuestion();
+        } else {
+          funs.updateTemplateRepo().then(() => {
+            askTemplateQuestion();
+          });
+        }
+      });
+    };
+
+    const confirm = () => {
+      return new Promise((resolve, reject) => {
+        var message = [
+          "系统将使用模板 【" +
+            chalk.red(options.template) +
+            "】 创建以下文件：",
+          "    (1)  " + chalk.green(options.entryPath),
+          "    (2)  " + chalk.green(options.vuePath),
+          "    (3)  " + chalk.green(options.configPath),
+          "\n",
+          "是否继续 ？",
+        ].join("\n");
+        var questions = [
+          {
+            type: "confirm",
+            name: "isDo",
+            message: message,
+            default: true,
+          },
+        ];
+        inquirer.prompt(questions).then(function (answers) {
+          if (answers.isDo) {
+            resolve(options);
+          } else {
+            reject("文件创建终止 ！\n");
+          }
+        });
+      });
+    };
+
+    const create = () => {
+      return new Promise((resolve, reject) => {
+        let parents = path
+          .relative(CURRENT_PATH, options.entryPath)
+          .replace("src/pages", "")
+          .split("/").length;
+        if (!parents) {
+          parents = "./";
+        } else {
+          parents = "../".repeat(parents);
+        }
+
+        let base_url = `${parents}node_modules/vuma-template/templates/${options.template}`;
+
+        let entryPath = options.entryPath;
+        let vuePath = options.vuePath;
+        let configPath = options.configPath;
+
+        let dir = entryPath.substring(0, entryPath.lastIndexOf("/"));
+        let entryName = entryPath.substr(entryPath.lastIndexOf("/") + 1);
+
+        entryName = entryName.substring(0, entryName.indexOf("."));
+
+        let entryFileContent = fs
+          .readFileSync(
+            path.resolve(
+              template_folder_path,
+              `${options.template}/template.entry.js`
+            ),
+            "utf8"
+          )
+          .toString()
+          .replace(/\[page_name\]/gi, entryName)
+          .replace(/\[base_url\]/gi, base_url);
+
+        let vueFileContent = fs
+          .readFileSync(
+            path.resolve(
+              template_folder_path,
+              `${options.template}/template.vue`
+            ),
+            "utf8"
+          )
+          .toString()
+          .replace(/\[page_path\]/gi, vuePath)
+          .replace(/\[base_url\]/gi, base_url);
+
+        let configFileContent = fs
+          .readFileSync(
+            path.resolve(
+              template_folder_path,
+              `${options.template}/config.json`
+            ),
+            "utf8"
+          )
+          .toString();
+
+        spawn("mkdir", ["-p", dir]).on("exit", function () {
+          try {
+            fs.writeFileSync(entryPath, entryFileContent);
+            fs.writeFileSync(vuePath, vueFileContent);
+            fs.writeFileSync(configPath, configFileContent);
+            resolve();
+          } catch (e) {
+            reject(e.toString());
+          }
+        });
+      });
+    };
+    getPath()
+      .then(chooseTemplate)
+      .then(confirm)
+      .then(create)
+      .then(function () {
+        logger.success("文件已生成。\n");
+        initAsk();
+      })
+      .catch((e) => logger.fatal(e));
+  },
+
+  // 启动开发服务器
+  startDev: function () {
+    spawn("webpack-dev-server", ["--port=9876"], { stdio: "inherit" });
+  },
+
+  askIfStartDev: function () {
+    let questions = [
+      {
+        type: "confirm",
+        name: "startDev",
+        message: "是否启动开发服务器",
+      },
+    ];
+    inquirer.prompt(questions).then(function (answers) {
+      if (answers.startDev) {
+        funs.startDev();
+      }
+    });
+  },
+
+  // 编译
+  build: function () {
+    let d = Date.now();
+    logger.log("正在编译中,请稍候...\n");
+
+    let webpack = spawn("webpack", ["-build"]);
+    webpack.on("close", function (code) {
+      if (code == 0) {
+        logger.log(
+          "编译完成 ！" + ("耗时：" + (Date.now() - d) / 1000) + "秒\n"
+        );
+
+        let questions = [
+          {
+            type: "confirm",
+            name: "startDev",
+            message: "是否要提交代码",
+          },
+        ];
+        inquirer.prompt(questions).then(function (answers) {
+          if (answers.startDev) {
+            funs.submit();
+          } else {
+            process.exit();
+          }
+        });
+      } else {
+        logger.fatal(`编译错误: ${code}\n`);
+      }
+    });
+  },
+
+  // 编译单个
+  buildOne: function () {
+    let pages_path = path.resolve(CURRENT_PATH, `./src/pages`);
+
+    const choosePagesPath = () => {
+      return new Promise((resolve, reject) => {
+        let askPagesPathQuestion = () => {
+          let pages_path_list = fs
+            .readdirSync(pages_path)
+            .filter((page_path) => {
+              return !/^\..*/.test(page_path);
+            });
+          let questions = {
+            type: "list",
+            name: "FilePath",
+            message: "请选择需要编译的目录\n",
+            choices: pages_path_list,
+          };
+          inquirer.prompt(questions).then(function (answers) {
+            resolve(answers.FilePath);
+          });
+        };
+
+        let exists = fs.existsSync(pages_path);
+        if (exists) {
+          askPagesPathQuestion();
+        } else {
+          logger.fatal(`pages文件夹不存在\n`);
+        }
+      });
+    };
+
+    choosePagesPath().then(function (file_path) {
+      let d = Date.now();
+      logger.log("正在编译中,请稍候...\n");
+      let webpack = spawn("webpack", ["-build", file_path]);
+
+      webpack.on("close", function (code) {
+        if (code == 0) {
+          logger.log(
+            "编译完成 ！" + ("耗时：" + (Date.now() - d) / 1000) + "秒\n"
+          );
+        } else {
+          logger.fatal(`编译错误: ${code}\n`);
+        }
+      });
+    });
+  },
+
+  // 重建全部入口文件
+  reCreateEntry() {
+    let configs = glob.sync(
+      path.resolve(CURRENT_PATH, "./src/pages/**/*.json")
+    );
+
+    configs.forEach((config) => {
+      config = path.resolve(CURRENT_PATH, config);
+
+      let template = JSON.parse(
+        fs.readFileSync(config, "utf8").toString()
+      ).template;
+
+      let entryPath = config.replace(".json", ".entry.js");
+      let entryName = config.split("/").slice(-1)[0].replace(".json", "");
+
+      let parents = path
+        .relative(CURRENT_PATH, config)
+        .replace("src/pages", "")
+        .split("/").length;
+
+      if (!parents) {
+        parents = "./";
+      } else {
+        parents = "../".repeat(parents);
+      }
+
+      let base_url = `${parents}node_modules/vuma-template/templates/${template}`;
+
+      let entryFileContent = fs
+        .readFileSync(
+          path.resolve(template_folder_path, `${template}/template.entry.js`),
+          "utf8"
+        )
+        .toString()
+        .replace(/\[page_name\]/gi, entryName)
+        .replace(/\[base_url\]/gi, base_url);
+
+      fs.writeFileSync(entryPath, entryFileContent);
+    });
+    logger.success("重建完成 ！\n");
+    initAsk();
+  },
+
+  // 提交代码
+  submit() {
+    let free = spawn("git", ["status"], { stdio: "inherit" });
+    free.on("exit", function () {
+      let questions = [
+        {
+          type: "confirm",
+          name: "isDo",
+          message: "确定提交以上文件吗？\n",
+        },
+      ];
+      inquirer.prompt(questions).then(function (answers) {
+        if (answers.isDo) {
+          questions = [
+            {
+              type: "input",
+              name: "des",
+              message: "请输入 commit 信息: ",
+              validate: function (value) {
+                if (!value.trim()) {
+                  return "commit 信息不能为空";
+                }
+                return true;
+              },
+            },
+          ];
+          inquirer.prompt(questions).then(function (answers) {
+            require("child_process")
+              .exec(`git add -A .;  git commit -m '${answers.des}';  git push`)
+              .on("exit", function () {
+                logger.log("提交完成！\n");
+              });
+          });
+        }
+      });
+    });
+  },
+
+  // 组合模板文件生成html，使用本地开发服务器路径
+  createHTML() {
+    let glob = require("glob");
+    let configs = glob.sync(
+      path.resolve(CURRENT_PATH, "./src/pages/**/*.json")
+    );
+    let entrys = glob.sync(
+      path.resolve(CURRENT_PATH, "./src/pages/**/*.entry.js")
+    );
+    let tasks = configs.map((config) => {
+      return new Promise((resolve, reject) => {
+        let scripts;
+
+        let savePath = config
+          .replace("src/pages/", "dist/")
+          .replace(".json", ".html");
+
+        let jsFile = path
+          .relative(CURRENT_PATH, config)
+          .replace("src/pages/", "")
+          .replace(".json", ".js");
+        scripts = `
+						<script src='http://localhost:9876/common.js'></script>
+						<script src='http://localhost:9876/${jsFile}'></script>
+					</body>
+					</html>`;
+
+        let rf = require("fs");
+        let template = JSON.parse(rf.readFileSync(config).toString()).template;
+        let data = rf.readFileSync(
+          path.resolve(template_folder_path, `${template}/layout.html`),
+          "utf-8"
+        );
+
+        let fileContents = data.replace(/<!--placeholder-->(.|\n)*/gi, scripts);
+        spawn("mkdir", [
+          "-p",
+          savePath.substring(0, savePath.lastIndexOf("/")),
+        ]).on("exit", () => {
+          rf.writeFileSync(savePath, fileContents);
+          resolve();
+        });
+      });
+    });
+    Promise.all(tasks).then(() => {
+      logger.log("全部 html 已生成，注意：发布使用 编译 功能。\n");
+      funs.askIfStartDev();
+    });
+  },
+};
+
+function getFileContent(path) {
+  if (!path) return;
+  return fs.readFileSync(path, "utf8").toString();
+}
+
+function initAsk(menus) {
+  menus = menus || MENU.slice(0);
+
+  inquirer
+    .prompt([
+      {
+        type: "list",
+        name: "menu",
+        message: "命令行工具，当前版本" + utils.getVersion() + "\n",
+        choices: menus.map((i) => i.text),
+      },
+    ])
+    .then(function (answers) {
+      let fun = menus.find((i) => i.text == answers.menu).fun;
+      if (fun) {
+        fun();
+      } else {
+        logger.log("功能还未实现，请联系@张彪");
+      }
+    });
+}
+
+function upgrade() {
+  logger.success(`发现新版本，更新中...\n`);
+  let cmd = spawn("vuma", ["upgrade"]);
+  cmd.on("exit", (err) => {
+    if (err) {
+      logger.warn(err);
+      logger.warn("vuma版本更新失败，使用本地安装版本\n");
+    } else {
+      logger.success("更新版本完毕\n");
+    }
+    initAsk();
+  });
+}
+
+const MENU = [
+  { text: "1. 安装依赖包", fun: funs.installDep },
+  { text: "2. 更新依赖包", fun: funs.updateDep },
+
+  { text: "3. 新建页面", fun: funs.createRouter },
+  { text: "4. 启动开发服务器", fun: funs.startDev },
+  {
+    text: "5. 使用调试模式（仅修改js文件host为locahost）",
+    fun: funs.createHTML,
+  },
+
+  { text: "6. 编译全部", fun: funs.build },
+
+  { text: "7. 编译单个文件夹", fun: funs.buildOne },
+
+  { text: "8. 重建全部入口文件", fun: funs.reCreateEntry },
+
+  { text: "9. 手动更新模板库", fun: funs.manuallyUpdateTemplateRepo },
+
+  { text: "0. 回到初始菜单", fun: initAsk },
+];
+
+utils.isLatestVersion().then(upgrade).catch(initAsk);
