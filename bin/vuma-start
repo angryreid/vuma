@@ -309,7 +309,7 @@ const funs = {
 
   // 启动开发服务器
   startDev: function () {
-    spawn("webpack-dev-server", ["--port=9876"], { stdio: "inherit" });
+    spawn("webpack-dev-server", ["--port=1209"], { stdio: "inherit" });
   },
 
   askIfStartDev: function () {
@@ -512,8 +512,8 @@ const funs = {
           .replace("src/pages/", "")
           .replace(".json", ".js");
         scripts = `
-						<script src='http://localhost:9876/common.js'></script>
-						<script src='http://localhost:9876/${jsFile}'></script>
+						<script src='http://localhost:1209/common.js'></script>
+						<script src='http://localhost:1209/${jsFile}'></script>
 					</body>
 					</html>`;
 

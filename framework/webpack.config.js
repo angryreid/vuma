@@ -64,7 +64,7 @@ CreateHtml.prototype.apply = function(compiler) {
         .replace(".json", ".html");
       var base_url, dist_base_url;
       if (isDebug) {
-        base_url = "http://localhost:9876";
+        base_url = "http://localhost:1209";
         dist_base_url = "";
       } else {
         base_url = "";
@@ -198,7 +198,7 @@ if (!isDebug) {
     );
   }
 } else {
-  webpackPlugins.push(new OpenBrowserPlugin({ url: "http://localhost:9876" }));
+  webpackPlugins.push(new OpenBrowserPlugin({ url: "http://localhost:1209" }));
   webpackPlugins.push(new webpack.HotModuleReplacementPlugin());
 }
 
