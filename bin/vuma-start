@@ -17,7 +17,7 @@ const CURRENT_PATH = process.cwd();
 
 const template_folder_path = path.join(
   CURRENT_PATH,
-  "node_modules/vuma-template/template"
+  "node_modules/vuma-template/templates"
 );
 const template_git_path = CONSTANTS.BASE_TEMPLATE_GIT_PATH;
 
