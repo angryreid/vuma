@@ -46,9 +46,12 @@ function run() {
 function execInit() {
   exec(
     "cp -r " + CONSTANTS.FRAMEWORK_PATH + " " + _global.proj_name,
-    (error) => {
+    (error, stdout, stderr) => {
       if (error) {
-        logger.fatal("复制项目初始目录失败，请检查");
+        logger.fatal(`
+            Log: 复制项目初始目录失败，请检查!
+            Error: ${error}
+        `);
       } else {
         logger.success(
           `已初始化成功! 请执行\n cd ${_global.proj_name} ; vuma start;`

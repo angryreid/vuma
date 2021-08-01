@@ -1,7 +1,8 @@
 # 使用以下方法安装
 
 ```
-npm install -g webpack webpack-dev-server https://github.com/angryreid/vuma.git
+
+npm install -g webpack@~4.15.0 webpack-cli@~3.3.2 webpack-dev-server@~3.4.1 https://github.com/angryreid/vuma.git
 ```
 
 # API
@@ -18,7 +19,7 @@ vuma upgrade # 更新vuma工具
 
 1. 执行vuma-start，启动开发服务器时，出现错误 "Cannot find module 'webpack'"
 
-	继续执行vuma-start，选择安装依赖包。
+2. 继续执行vuma-start，选择安装依赖包。
 
 # 开发者注意事项
 

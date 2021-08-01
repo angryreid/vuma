@@ -17,7 +17,7 @@ const CURRENT_PATH = process.cwd();
 
 const template_folder_path = path.join(
   CURRENT_PATH,
-  "node_modules/vuma-template/templates"
+  "node_modules/vuma-template/template"
 );
 const template_git_path = CONSTANTS.BASE_TEMPLATE_GIT_PATH;
 
@@ -57,7 +57,6 @@ const funs = {
   //更新模板库
   updateTemplateRepo: function () {
     return new Promise((resolve, reject) => {
-      let exist = fs.existsSync(template_folder_path);
       let spinner = ora("正在拉取模板库...");
       let npm = spawn(process.platform === "win32" ? "npm.cmd" : "npm", [
         "install",
