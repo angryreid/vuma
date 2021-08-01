@@ -20,6 +20,8 @@
     "css-loader": "^1.0.0",
     "file-loader": "^2.0.0",
     "less": "^3.9.0",
+    "node-sass": "^4.9.2",
+    "sass-loader": "^7.0.3",
     "less-loader": "^4.1.0",
     "open-browser-webpack-plugin": "0.0.5",
     "require": "^2.4.20",

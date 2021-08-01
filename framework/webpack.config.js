@@ -222,6 +222,20 @@ var webpack_config = {
         use: [{ loader: "babel-loader" }]
       },
       {
+        test: /\.scss$/,
+        use: [
+          {
+            loader: "style-loader" // 将 JS 字符串生成为 style 节点
+          },
+          {
+            loader: "css-loader" // 将 CSS 转化成 CommonJS 模块
+          },
+          {
+            loader: "sass-loader" // 将 Sass 编译成 CSS
+          }
+        ]
+      },
+      {
         test: /\.less$/,
         use: [
           {
@@ -299,7 +313,7 @@ var webpack_config = {
     inline: true,
     progress: true,
     host: "0.0.0.0",
-    port: 9876,
+    port: 1209,
     disableHostCheck: true,
     proxy: {
       "/accountweb/**": {
