@@ -3,7 +3,7 @@
   "author": "nick1963",
   "email": "onyourwill@gmail.com",
   "license": "MIT",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "vue多页工具",
   "main": "index.js",
   "bin": {

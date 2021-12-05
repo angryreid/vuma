@@ -35,8 +35,8 @@
     "vue-style-loader": "~2.0.0",
     "vue-template-compiler": "~2.5.2",
     "vuma-template": "~1.0.0",
-    "webpack": "~4.15.1",
-    "webpack-cli": "~3.3.2",
-    "webpack-dev-server": "~3.4.1"
+    "webpack": "^4.15.1",
+    "webpack-cli": "^3.3.2",
+    "webpack-dev-server": "^3.4.1"
   }
 }
